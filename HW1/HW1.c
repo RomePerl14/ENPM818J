@@ -52,7 +52,7 @@ int main(int argc, char** argv)
 
     // find the child and parent, and make the parent fork one more time
     // This first child will be the one to create the file and use user inputs
-    if(child1_PID == 0 && child2_PID == -1)
+    if(child1_PID == 0)
     {
         signal(SIGTERM, child1_handler);
 
@@ -154,6 +154,7 @@ int main(int argc, char** argv)
         printf("\nTerminating the children, as it's annoying to deal with the scanf's");
         kill(child1_PID, SIGTERM);
         kill(child2_PID, SIGTERM);
+        remove(filename); /// remove the file since it's a temporary reading/writing file
         printf("\n\nClosing process! Thanks for ADDing :D\n");
     }
 
