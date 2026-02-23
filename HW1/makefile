@@ -1,4 +1,4 @@
-all: HW1_maker test_shite HW1_pipe_maker
+all: HW1_maker HW1_pipe_maker
 
 HW1_maker:
 	gcc HW1.c -o HW1
