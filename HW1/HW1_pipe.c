@@ -69,7 +69,8 @@ int main(int argc, char** argv)
 
     if(child1_PID == 0 && child2_PID == -1)
     {
-        // signal(SIGTERM, child1_handler);
+        signal(SIGTERM, child1_handler);
+
         while(loop_child1)
         {   
             // number inputs
@@ -94,7 +95,7 @@ int main(int argc, char** argv)
             write(pipe_file_descriptor[1], &num2_buff, sizeof(float));
             printf("[child 1: reciever] Adding the following numbers: %f, %f\n", num1_buff, num2_buff);
             
-            // block until the child process finishes adding...
+            // block until the child process finishes adding... so that our output looks nice!
             __uint8_t nothing_burger;
             read(pipe_fd_notification[0], &nothing_burger, sizeof(__uint8_t));
         }
@@ -103,7 +104,7 @@ int main(int argc, char** argv)
     }
     else if(child2_PID == 0)
     {
-        // signal(SIGTERM, child2_handler);
+        signal(SIGTERM, child2_handler);
 
         float num1, num2, final;
         int read1, read2;
@@ -126,6 +127,7 @@ int main(int argc, char** argv)
                 printf("[child 2: responder] Sum of %f + %f = %f\n", num1, num2, final);
                 read1 = 0;
                 read2 = 0;
+                // inform the other child that we've finished adding lol
                 __uint8_t nothing_burger = 1;
                 write(pipe_fd_notification[1], &nothing_burger, sizeof(__uint8_t));
             }
@@ -134,11 +136,23 @@ int main(int argc, char** argv)
     }
     else if(child1_PID > 1 && child2_PID > 1)
     {
-        while(1)
+        // The parent will just monitor the children playing, and tell them them it's bedtime when we ctrl-c the process. As in the parent will KILL the children. thats right. you heard me.
+        // Monitor for ctrl-c, somehow?
+
+        signal(SIGINT, parent_handler);
+        while(loop_parent)
         {
-            // printf("[parent] test\n");
-            // sleep(1);
+
         }
+        printf("\n\nTerminating the children, as it's annoying to deal with the scanf's");
+        printf("\nI've learned about sigaction, but I'm SOOOO LAZZZYYYYY");
+        kill(child1_PID, SIGTERM);
+        kill(child2_PID, SIGTERM);
+        close(pipe_file_descriptor[1]);
+        close(pipe_file_descriptor[0]);
+        close(pipe_file_descriptor[1]);
+        close(pipe_file_descriptor[0]);
+        printf("\n\nClosing process! Thanks for ADDing :D\n");
     }
     // // // The parent
     // else if(child2_PID > 0 && child1_PID > 0)
