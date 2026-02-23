@@ -8,5 +8,4 @@ HW1_pipe_maker:
 
 clean:
 	rm HW1
-	rm test
 	rm HW1_p
