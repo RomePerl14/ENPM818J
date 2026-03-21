@@ -26,94 +26,75 @@ int desired_key = 57; // spacebar
 void* thread_func(void* arg) 
 {
     int in_crit_section;
+    int curr = 0;
+    int prev = 0;
+    int released = 0;
     int id = *(int*)arg;
     while(looping)
     {
+        prev = curr;
+        curr = curr_key_press;
+        if(curr == 0 && prev == 0 && released == 1)
+        {
+            released = 0;
+            in_crit_section = 0;
+            sem_post(&binary_sema); // release the mutex
+        }
         if(id == 1)
         {
             if(in_crit_section == 0)
             {
-                printf("[thread 1] waiting for access to the critical section\n");
+                printf("\n[THREAD 1] waiting for access to the critical section");
                 sem_wait(&binary_sema); // Wait to get access to the key press variables
                 // once we have access, act on the variables
-                printf("[thread 1] accessed the critical section\n");
+                printf("\n[THREAD 1] accessed the critical section");
                 in_crit_section = 1;
                 continue; // reloop
             }
             else if(in_crit_section == 1)
             {
-                printf("curr: %i, prev: %i\n", curr_key_press, prev_key_press);
-                if(curr_key_press == 0 && prev_key_press == 1)
+                
+                if(curr == 0 && prev == 1 && released == 0)
                 {
-                    printf("[thread 1] spacebar released, awesome sauce\n");
-                    sem_post(&binary_sema); // release the mutex
-                    in_crit_section = 0;
+                    printf("\n[THREAD 1] spacebar released, awesome sauce");
+                    released = 1;
                 }
-                else if(curr_key_press == 1 && prev_key_press == 0){
-                    continue;
+                else if(curr == 0 && prev == 0 && released == 1)
+                {
+                    released = 0;
+                    in_crit_section = 0;
+                    sem_post(&binary_sema); // release the mutex
                 }
             }
         }
         if(id == 2)
         {
-            // if(in_crit_section == 0)
-            // {
-            //     printf("[thread 2] waiting for access to the critical section\n");
-            //     sem_wait(&binary_sema); // Wait to get access to the key press variables
-            //     // once we have access, act on the variables
-            //     printf("[thread 2] accessed the critical section\n");
-            //     in_crit_section = 1;
-            //     continue; // reloop
-            // }
-            // else if(in_crit_section == 1)
-            // {
-            //     if(curr_key_press == 0)
-            //     {
-            //         // do nothing, and reloop 
-            //         continue;
-            //     }
-            //     else if(curr_key_press == 1 && prev_key_press == 0)
-            //     {
-            //         printf("[thread 2] spacebar pressed, awesome sauce\n");
-            //         sem_post(&binary_sema); // release the mutex
-            //         in_crit_section = 0;
-            //     }
-            // }
+            if(in_crit_section == 0)
+            {
+                printf("\n[THREAD 2] waiting for access to the critical section");
+                sem_wait(&binary_sema); // Wait to get access to the key press variables
+                // once we have access, act on the variables
+                printf("\n[THREAD 2] accessed the critical section");
+                in_crit_section = 1;
+                continue; // reloop
+            }
+            else if(in_crit_section == 1)
+            {
+                if(curr == 1 && prev == 0 && released == 0)
+                {
+                    printf("\n[THREAD 2] spacebar pressed, awesome sauce");
+                    released = 1;
+                }
+                
+            }
         }
-    }
-    return NULL;
-}
-
-void* thread_func2(void* arg) 
-{
-    while(looping)
-    {
-        // if(curr_key_press == 1 && prev_key_press == 0)
-        // {
-        //     // initiate access to the critical section now that we've pressed a key. Basically, latch the key
-        //     printf("[thread 1] waiting for access to the critical section\n");
-        //     sem_wait(&binary_sema); // Wait (P)
-        //     // When we have access, print that we capture a key input
-        //     printf("[thread 1] access gained, idling for shits n giggles\n");
-        //     sleep(1);
-        //     printf("[thread 1] pretended to do a task...\n");
-        //     sleep(1);
-        //     printf("[thread 1] pretended to do a task...\n");
-        //     sleep(1);
-        //     printf("[thread 1] ding!\n");
-        //     sem_post(&binary_sema); // Signal (V)
-        // }
-        // else if(curr_key_press == 0 && prev_key_press == 1)
-        // {
-        //     printf("[thread 1] spacebar released, awesome sauce\n");
-        // }
     }
     return NULL;
 }
 
 int main()
 {
-    signal(SIGINT, loop_handler);
+    signal(SIGTERM, loop_handler);
     // First, read from /proc/bus/input/devices to figure out what the keyboard event is
     FILE* kb = fopen("/proc/bus/input/devices", "r"); // if it doesn't exist, we're in bad shape
     int loop = 1;
@@ -166,6 +147,7 @@ int main()
     sem_init(&binary_sema, 0, 1);
 
     printf("Don't forget to run with sudo perms!! trust me... I'm not devious!\n");
+    printf("Press the space bar!\n");
     struct input_event ev; // using the same formatting I found online
     char filename[200];
     snprintf(filename, 200, "/dev/input/%s", search_string);
@@ -195,7 +177,7 @@ int main()
                 if(ev.code == 57) // spacebar
                 {
                     curr_key_press = ev.value;
-                    prev_key_press = curr_key_press;
+                    
                 }
             }
             
