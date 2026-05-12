@@ -6,7 +6,7 @@ For my final project submission, I used a PD controller and an ESP32 to control 
 ### ALL ENCOMPASSING VIDEO (I spliced everything into one video)
 [TODO INSERT VIDEO]
 ### Final Presentation
-[![Watch the video](https://youtube.com)]([[https://youtube.com](https://youtu.be/4x_1EzVbeUM)](https://youtu.be/4x_1EzVbeUM))
+[![WATCH ME!](https://img.youtube.com/vi/4x_1EzVbeUM/0.jpg)](https://youtu.be/4x_1EzVbeUM?si=awZT6v1FqGZJzXVO)
 ### CODE OVERVIEW
 [TODO INSERT VIDEO]
 ### SYSTEM DEMO
