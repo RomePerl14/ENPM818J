@@ -2,6 +2,15 @@
 
 For my final project submission, I used a PD controller and an ESP32 to control a brushless DC motor. This README contains the hardware used by the system, the system electronics and wiring, and the software to drive the system. By the end of this README, you should build and replicate the results exaclty from this final project! At least, that is my hope with this README :)
 
+## VIDEOS
+### Final Presentation
+[TODO INSERT VIDEO]
+### CODE OVERVIEW
+[TODO INSERT VIDEO]
+### SYSTEM DEMO
+[TODO INSERT VIDEO]
+### SYSTEM DEMO WITH TERMINAL OUTPUT
+[TODO INSERT VIDEO]
 
 ## Tools Needed:
 - Wire strippers
@@ -124,6 +133,9 @@ This is pretty much stripped directly from their example, as there was no point 
 
 ### The Display Task [`display_control_data_task()`]
 This task is very straight forward. Get the data from the buffers, and then print it to the console!
+
+### PWM Generator
+Its important to note that the PWM generator is generating a signal with a frequency of 20kHz. From online research (googling), 20kHz seemed to be a good PWM frequency to ensure good motor control. With this goal in mind, we needed to calculate the control duty resolution (see PWM generator below), and found that our maximum PWM command was 2047 bits, and our resolution was 1 bit, so we have  2047 different possible commands to send to the hardware.
 
 
 ## Final Takeaways
