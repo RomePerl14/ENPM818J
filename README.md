@@ -3,6 +3,8 @@
 For my final project submission, I used a PD controller and an ESP32 to control a brushless DC motor. This README contains the hardware used by the system, the system electronics and wiring, and the software to drive the system. By the end of this README, you should build and replicate the results exaclty from this final project! At least, that is my hope with this README :)
 
 ## VIDEOS
+### ALL ENCOMPASSING VIDEO (I spliced everything into one video)
+[TODO INSERT VIDEO]
 ### Final Presentation
 [TODO INSERT VIDEO]
 ### CODE OVERVIEW
