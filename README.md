@@ -6,14 +6,13 @@ For my final project submission, I used a PD controller and an ESP32 to control 
 ### ALL ENCOMPASSING VIDEO (I spliced everything into one video)
 [![WATCH ME!](https://img.youtube.com/vi/Hu35tKas5SA/0.jpg)](https://www.youtube.com/watch?v=Hu35tKas5SA)
 ### Final Presentation
-[![WATCH ME!](https://img.youtube.com/vi/4x_1EzVbeUM/0.jpg)](https://youtu.be/4x_1EzVbeUM?si=awZT6v1FqGZJzXVO)
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/4x_1EzVbeUM/0.jpg)](https://www.youtube.com/watch?v=4x_1EzVbeUM)
 ### CODE OVERVIEW
-[TODO INSERT VIDEO]
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/HJQnwBiKr0g/0.jpg)](https://www.youtube.com/watch?v=HJQnwBiKr0g)
 ### SYSTEM DEMO
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/Gk0GASkIG9Y/0.jpg)](https://www.youtube.com/watch?v=Gk0GASkIG9Y)
-
 ### SYSTEM DEMO WITH TERMINAL OUTPUT
-[TODO INSERT VIDEO]
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/exr8jvf5Yu8/0.jpg)](https://www.youtube.com/watch?v=exr8jvf5Yu8)
 
 ## Tools Needed:
 - Wire strippers
