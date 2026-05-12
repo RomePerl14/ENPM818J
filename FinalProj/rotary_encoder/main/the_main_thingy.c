@@ -17,6 +17,7 @@
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_err.h"
+#include "esp_adc/adc_continuous.h"
 #include "driver/pulse_cnt.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -25,6 +26,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h" // unused, but keeping until we're done
+#include "freertos/semphr.h"
 
 
 // TODO: need to do the following
@@ -58,7 +60,7 @@ typedef struct
 void ctrl_loop_read(int *encoder_counts_);
 float compute_position_pid_standard(float err, float prev_err, pid_gains gains, float freq);
 float compute_position_pid_velocity(float err, float vel, pid_gains gains);
-void ctrl_loop_write(float U_);
+void ctrl_loop_write(float *U_);
 void position_pid_task(void *pvParameters);
 void velocity_pid_task();
 void setup_pcnt_stuff();
@@ -68,6 +70,8 @@ static void setup_ledc_stuff(void);
 static const char *TAG_position_PID = "[Position Ctrl]";
 // static const char *TAG_velocity_PID = "[Velocity Ctrl]";
 static const char *TAG_main = "[Main]";
+static const char *TAG_pot = "[Potentiometer]";
+static const char *TAG_display = "[DISPLAY]";
 
 // CONSTANTS
 #define PI 3.14159265359
@@ -91,9 +95,19 @@ uint16_t ledc_duty_ctrl_loop    = 2047;
 #define LEDC_CLK_SRC            LEDC_APB_CLK // want to use the APB (80 MHz) clock!
 #define LEDC_FREQUENCY          20000 // Frequency in Hertz. Set frequency at 20 kHz
 
+// Potentiometer setup
+#define EXAMPLE_ADC_UNIT                    ADC_UNIT_1
+#define EXAMPLE_ADC_CONV_MODE               ADC_CONV_SINGLE_UNIT_1
+#define EXAMPLE_ADC_ATTEN                   ADC_ATTEN_DB_12
+#define EXAMPLE_ADC_BIT_WIDTH               SOC_ADC_DIGI_MAX_BITWIDTH
+
+#define EXAMPLE_READ_LEN                    256
+
+static adc_channel_t channel[] = {ADC_CHANNEL_6};
+
 // control loop frequencies, to be used by each task
 float ctrl_freq_position = 1000; // Hz
-float ctrl_freq_velocity = 500; // Hz
+// float ctrl_freq_velocity = 500; // Hz
 typedef enum {
   STANDARD,
   VELOCITY,
@@ -101,8 +115,8 @@ typedef enum {
 pid_mode mode = STANDARD;
 
 //-------- POSITION LOOP PARAMETERS
-float Kp_pos = 1;
-float Kd_pos = 0.00;
+float Kp_pos = 0.6;
+float Kd_pos = 0.025;
 float Ki_pos = 0;
 
 // //-------- VELOCITY LOOP PARAMETERS
@@ -127,6 +141,19 @@ pcnt_chan_config_t chan_a_config;
 pcnt_chan_config_t chan_b_config;
 pcnt_channel_handle_t pcnt_chan_a;
 pcnt_channel_handle_t pcnt_chan_b;
+
+// TASK HANDLES
+TaskHandle_t control_loop_task;
+TaskHandle_t read_pot_task;
+TaskHandle_t display_data_task;
+
+// DATA BUFFERS
+float COMMAND_POS = 0.0;
+int POT_POSITION = 0;
+float CONTROL_SIGNAL = 0.0;
+int ENCODER_COUNTS = 0.0;
+float ACTUAL_POS = 0.0;
+float ERROR = 0.0;
 
 // functionalizing to reduce clutter, but this does nothing of importance
 void setup_pcnt_stuff()
@@ -217,32 +244,32 @@ void ctrl_loop_read(int *encoder_counts_)
 }
 
 // control loop implementation borrow from: https://geekeeceebee.com/DCMotor%20Position%20Tracking.html
-void ctrl_loop_write(float U_)
+void ctrl_loop_write(float *U_)
 {
     // enforce that our control input is within bounds
-    if (U_ > Umax)
+    if (*U_ > Umax)
     {
-        U_ = Umax;
+        *U_ = Umax;
     }
-    else if (U_ < -Umax)
+    else if (*U_ < -Umax)
     {
-        U_ = -Umax;
+        *U_ = -Umax;
     }
 
     // generate the PWM signal based on the duty count and the current control signal
-    int cycle = (int)((ledc_duty_ctrl_loop) * fabsf(U_) * Umax_inv);
+    int cycle = (int)((ledc_duty_ctrl_loop) * fabsf(*U_) * Umax_inv);
     if(cycle > (ledc_duty_ctrl_loop)) // should never be the case, but lets check anyway
     {
         cycle = (ledc_duty_ctrl_loop);
     }
 
-    if(U_ < 0)
+    if(*U_ < 0)
     {
         // set the direction pin LOW 
         // Low is negative! so this should make sense
         gpio_set_level(DIRECTION_PIN, 0);
     }
-    else if(U_ > 0)
+    else if(*U_ > 0)
     {
         // set the direction pin HIGH
         // high is positive! so this is good
@@ -289,7 +316,7 @@ void position_pid_task(void *pvParameters)
 
 
     // initial values
-    float des_pos = 3.141592; // the desired position of the motor
+    float des_pos = 0.0; // the desired position of the motor
     float curr_pos = 0.0; // the measured position - always will be set to 0
     float curr_vel = 0.0; // the measured velocity - always will be set to 0
     float prev_pos = 0.0; // the previous measured position - always will start at 0
@@ -313,6 +340,7 @@ void position_pid_task(void *pvParameters)
 
         //-------- UPDATE CONTROL WITH USER INPUT
         // update() <- get user inputs on desired position changes
+        des_pos = COMMAND_POS;
         // des_pos = get_desired_pos_somehow();
 
         curr_pos = curr_pos_enc_counts*counts_to_radians; // convert encoder counts to radians
@@ -330,7 +358,13 @@ void position_pid_task(void *pvParameters)
         // ESP_LOGI(TAG_position_PID, "Position: %f, Counts: %i, Error: %f, U: %f", curr_pos, curr_pos_enc_counts, err, U);
 
         //-------- WRITE OUPUTS TO MOTOR DRIVER
-        ctrl_loop_write(U);
+        ctrl_loop_write(&U);
+
+        // store data in the buffers
+        ACTUAL_POS = curr_pos;
+        ENCODER_COUNTS = curr_pos_enc_counts;
+        ERROR = err;
+        CONTROL_SIGNAL = U;
 
         // Set the previous variables for our next loop
         prev_err = err;
@@ -339,15 +373,117 @@ void position_pid_task(void *pvParameters)
     }
 }
 
-// void velocity_pid_task()
-// {
+// control potentiometer task function
+static bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_continuous_evt_data_t *edata, void *user_data)
+{
+    BaseType_t mustYield = pdFALSE;
+    //Notify that ADC continuous driver has done enough number of conversions
+    vTaskNotifyGiveFromISR(read_pot_task, &mustYield);
 
-// }
+    return (mustYield == pdTRUE);
+}
+static void continuous_adc_init(adc_channel_t *channel, uint8_t channel_num, adc_continuous_handle_t *out_handle)
+{
+    adc_continuous_handle_t handle = NULL;
 
-// void command_interface_task()
-// {
+    adc_continuous_handle_cfg_t adc_config = {
+        .max_store_buf_size = 1024,
+        .conv_frame_size = EXAMPLE_READ_LEN,
+    };
+    ESP_ERROR_CHECK(adc_continuous_new_handle(&adc_config, &handle));
 
-// }
+    adc_continuous_config_t dig_cfg = {
+        .sample_freq_hz = 20 * 1000,
+        .conv_mode = EXAMPLE_ADC_CONV_MODE,
+    };
+
+    adc_digi_pattern_config_t adc_pattern[SOC_ADC_PATT_LEN_MAX] = {0};
+    dig_cfg.pattern_num = channel_num;
+    for (int i = 0; i < channel_num; i++) {
+        adc_pattern[i].atten = EXAMPLE_ADC_ATTEN;
+        adc_pattern[i].channel = channel[i] & 0x7;
+        adc_pattern[i].unit = EXAMPLE_ADC_UNIT;
+        adc_pattern[i].bit_width = EXAMPLE_ADC_BIT_WIDTH;
+
+        ESP_LOGI(TAG_pot, "adc_pattern[%d].atten is :%"PRIx8, i, adc_pattern[i].atten);
+        ESP_LOGI(TAG_pot, "adc_pattern[%d].channel is :%"PRIx8, i, adc_pattern[i].channel);
+        ESP_LOGI(TAG_pot, "adc_pattern[%d].unit is :%"PRIx8, i, adc_pattern[i].unit);
+    }
+    dig_cfg.adc_pattern = adc_pattern;
+    ESP_ERROR_CHECK(adc_continuous_config(handle, &dig_cfg));
+
+    *out_handle = handle;
+}
+void read_potentiometer_task(void *pvParameters)
+{
+    esp_err_t ret;
+    uint32_t ret_num = 0;
+    uint8_t result[EXAMPLE_READ_LEN] = {0};
+    memset(result, 0xcc, EXAMPLE_READ_LEN);
+
+    adc_continuous_handle_t handle = NULL;
+    continuous_adc_init(channel, sizeof(channel) / sizeof(adc_channel_t), &handle);
+
+    ESP_ERROR_CHECK(adc_continuous_start(handle));
+    while (1) 
+    {
+        while (1) 
+        {
+            ret = adc_continuous_read(handle, result, EXAMPLE_READ_LEN, &ret_num, 0);
+            if (ret == ESP_OK) {
+                // ESP_LOGI("TASK", "ret is %x, ret_num is %"PRIu32" bytes", ret, ret_num);
+
+                adc_continuous_data_t parsed_data[ret_num / SOC_ADC_DIGI_RESULT_BYTES];
+                uint32_t num_parsed_samples = 0;
+
+                esp_err_t parse_ret = adc_continuous_parse_data(handle, result, ret_num, parsed_data, &num_parsed_samples);
+                if (parse_ret == ESP_OK) {
+                    if (parsed_data[num_parsed_samples-1].valid) {
+                        // ESP_LOGI(TAG_pot, "ADC%d, Channel: %d, Value: %"PRIu32,
+                        //             parsed_data[num_parsed_samples-1].unit + 1,
+                        //             parsed_data[num_parsed_samples-1].channel,
+                        //             parsed_data[num_parsed_samples-1].raw_data);
+                        // COMMAND_POS = ((float)(parsed_data[num_parsed_samples-1].raw_data)/2048.0 - 1)*2*PI;
+                        COMMAND_POS = ((float)(parsed_data[num_parsed_samples-1].raw_data)/2048.0 - 1)*PI;
+                        POT_POSITION = parsed_data[num_parsed_samples-1].raw_data;
+                        // ESP_LOGI(TAG_pot, "Pot Position: %i, Desired Position: %f", parsed_data[num_parsed_samples-1].raw_data, COMMAND_POS);
+                    }
+                }
+
+                /**
+                 * Because printing is slow, so every time you call `ulTaskNotifyTake`, it will immediately return.
+                 * To avoid a task watchdog timeout, add a delay here. When you replace the way you process the data,
+                 * usually you don't need this delay (as this task will block for a while).
+                 */
+                vTaskDelay(pdMS_TO_TICKS(10)); // run fast, if you can!
+            }
+            else if (ret == ESP_ERR_TIMEOUT)
+            {
+                //We try to read `EXAMPLE_READ_LEN` until API returns timeout, which means there's no available data
+                break;
+            }
+        }
+    }
+    ESP_ERROR_CHECK(adc_continuous_stop(handle));
+    ESP_ERROR_CHECK(adc_continuous_deinit(handle));
+}
+
+void display_control_data_task(void *pvParameters)
+{
+    while(1)
+    {
+        ESP_LOGI(TAG_display, "CONTROL DATA:\t\ndes_pos: %f,\ncurr_pos: %f,\npot_pos: %i,\nerr: %f,\nu(t): %f,\nenc_counts: %i\n\n", 
+                    COMMAND_POS,
+                    ACTUAL_POS,
+                    POT_POSITION,
+                    ERROR,
+                    CONTROL_SIGNAL,
+                    ENCODER_COUNTS);
+
+        // display data 10 times a second
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
 
 void app_main(void)
 {
@@ -366,7 +502,10 @@ void app_main(void)
     // setup RTOS Tasks
     ESP_LOGI(TAG_main, "[%i] Setting up RTOS tasks...", 0);
     ESP_LOGI(TAG_main, "[%i] SETTING UP POSITION CONTROL TASK", 0);
-    xTaskCreate(position_pid_task, "position_pid", 8192, NULL, 1, NULL);
-    // xTaskCreate(blink_task_2, "Blink2", 2048, NULL, 1, NULL);
+    xTaskCreatePinnedToCore(position_pid_task, "position_pid", 8192, NULL, 1, &control_loop_task, 1);
+    ESP_LOGI(TAG_main, "[%i] SETTING UP POTENTIOMETER TASK", 0);
+    xTaskCreatePinnedToCore(read_potentiometer_task, "poteniometer", 10000, NULL, 1, &read_pot_task, 0);
+    ESP_LOGI(TAG_main, "[%i] SETTING UP DISPLAY TASK", 0);
+    xTaskCreatePinnedToCore(display_control_data_task, "display", 8192, NULL, 2, &display_data_task, 0);
     return;
 }
