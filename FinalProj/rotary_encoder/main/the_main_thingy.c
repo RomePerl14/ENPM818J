@@ -118,6 +118,7 @@ pid_mode mode = STANDARD;
 float Kp_pos = 0.6;
 float Kd_pos = 0.025;
 float Ki_pos = 0;
+float Beta = 0.9; // velocity filtering
 
 // //-------- VELOCITY LOOP PARAMETERS
 // float Kp_vel = 10;
@@ -134,11 +135,11 @@ int EXAMPLE_PCNT_LOW_LIMIT = -24000; // can do 10 negative turns starting from 0
 int encoder_counts_per_rev = 2400; // encoder counts per revolution. Since encoder is 600 P/R, the quadrature encoder counts are 4x the P/R
 
 // channel definitions for PCNT counter - global variables because the position and velocity tasks are sharing the resources and need to claim them when running
-pcnt_unit_config_t unit_config;
+pcnt_unit_config_t unit_config = {};
 pcnt_unit_handle_t pcnt_unit;
-pcnt_glitch_filter_config_t filter_config;
-pcnt_chan_config_t chan_a_config;
-pcnt_chan_config_t chan_b_config;
+pcnt_glitch_filter_config_t filter_config = {};
+pcnt_chan_config_t chan_a_config = {};
+pcnt_chan_config_t chan_b_config = {};
 pcnt_channel_handle_t pcnt_chan_a;
 pcnt_channel_handle_t pcnt_chan_b;
 
@@ -148,6 +149,7 @@ TaskHandle_t read_pot_task;
 TaskHandle_t display_data_task;
 
 // DATA BUFFERS
+SemaphoreHandle_t xMutex;
 float COMMAND_POS = 0.0;
 int POT_POSITION = 0;
 float CONTROL_SIGNAL = 0.0;
@@ -269,7 +271,7 @@ void ctrl_loop_write(float *U_)
         // Low is negative! so this should make sense
         gpio_set_level(DIRECTION_PIN, 0);
     }
-    else if(*U_ > 0)
+    else if(*U_ >= 0)
     {
         // set the direction pin HIGH
         // high is positive! so this is good
@@ -291,7 +293,7 @@ float compute_position_pid_standard(float err, float prev_err, pid_gains gains, 
 
 float compute_position_pid_velocity(float err, float vel, pid_gains gains)
 {
-    float u = gains.Kp*err + gains.Kd*vel;
+    float u = gains.Kp*err - gains.Kd*vel;
     return u;
 }
 
@@ -320,6 +322,7 @@ void position_pid_task(void *pvParameters)
     float curr_pos = 0.0; // the measured position - always will be set to 0
     float curr_vel = 0.0; // the measured velocity - always will be set to 0
     float prev_pos = 0.0; // the previous measured position - always will start at 0
+    float prev_vel = 0.0;
     int curr_pos_enc_counts = 0; // the current encoder counts of the system
 
     // initial error values
@@ -339,13 +342,15 @@ void position_pid_task(void *pvParameters)
         ctrl_loop_read(&curr_pos_enc_counts);
 
         //-------- UPDATE CONTROL WITH USER INPUT
-        // update() <- get user inputs on desired position changes
-        des_pos = COMMAND_POS;
-        // des_pos = get_desired_pos_somehow();
+        if(xSemaphoreTake(xMutex, 0))
+        {
+            des_pos = COMMAND_POS;
+            xSemaphoreGive(xMutex);
+        }
 
         curr_pos = curr_pos_enc_counts*counts_to_radians; // convert encoder counts to radians
         err = des_pos - curr_pos; //get the position error
-        curr_vel = (curr_pos - prev_pos)*ctrl_freq_position; // computer the current velocity
+        // curr_vel = Beta*prev_vel + (1-Beta)*(curr_pos - prev_pos)*ctrl_freq_position; // computer the current velocity
         switch(mode) // switch based on the set PID mode
         {
             case STANDARD:
@@ -355,7 +360,6 @@ void position_pid_task(void *pvParameters)
                 U = compute_position_pid_velocity(err, curr_vel, pos_gains);
                 break;
         }
-        // ESP_LOGI(TAG_position_PID, "Position: %f, Counts: %i, Error: %f, U: %f", curr_pos, curr_pos_enc_counts, err, U);
 
         //-------- WRITE OUPUTS TO MOTOR DRIVER
         ctrl_loop_write(&U);
@@ -444,8 +448,12 @@ void read_potentiometer_task(void *pvParameters)
                         //             parsed_data[num_parsed_samples-1].channel,
                         //             parsed_data[num_parsed_samples-1].raw_data);
                         // COMMAND_POS = ((float)(parsed_data[num_parsed_samples-1].raw_data)/2048.0 - 1)*2*PI;
-                        COMMAND_POS = ((float)(parsed_data[num_parsed_samples-1].raw_data)/2048.0 - 1)*PI;
-                        POT_POSITION = parsed_data[num_parsed_samples-1].raw_data;
+                        if(xSemaphoreTake(xMutex, 0))
+                        {
+                            COMMAND_POS = ((float)(parsed_data[num_parsed_samples-1].raw_data)/2048.0 - 1)*PI;
+                            POT_POSITION = parsed_data[num_parsed_samples-1].raw_data;
+                            xSemaphoreGive(xMutex);
+                        }
                         // ESP_LOGI(TAG_pot, "Pot Position: %i, Desired Position: %f", parsed_data[num_parsed_samples-1].raw_data, COMMAND_POS);
                     }
                 }
@@ -472,14 +480,18 @@ void display_control_data_task(void *pvParameters)
 {
     while(1)
     {
-        ESP_LOGI(TAG_display, "CONTROL DATA:\t\ndes_pos: %f,\ncurr_pos: %f,\npot_pos: %i,\nerr: %f,\nu(t): %f,\nenc_counts: %i\n\n", 
+        if(xSemaphoreTake(xMutex, 0))
+        {
+            ESP_LOGI(TAG_display, "CONTROL DATA:\t\ndes_pos: %f,\ncurr_pos: %f,\npot_pos: %i,\nerr: %f,\nu(t): %f,\nenc_counts: %i\n\n", 
                     COMMAND_POS,
                     ACTUAL_POS,
                     POT_POSITION,
                     ERROR,
                     CONTROL_SIGNAL,
                     ENCODER_COUNTS);
-
+            // return mutex
+            xSemaphoreGive(xMutex);
+        }
         // display data 10 times a second
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -487,6 +499,9 @@ void display_control_data_task(void *pvParameters)
 
 void app_main(void)
 {
+    // create da mutex
+    xMutex = xSemaphoreCreateMutex();
+
     // setup the counter first
     ESP_LOGI(TAG_main, "[%i] Setting up pulse counter for quadrature decoder...", 0);
     setup_pcnt_stuff();
@@ -502,10 +517,10 @@ void app_main(void)
     // setup RTOS Tasks
     ESP_LOGI(TAG_main, "[%i] Setting up RTOS tasks...", 0);
     ESP_LOGI(TAG_main, "[%i] SETTING UP POSITION CONTROL TASK", 0);
-    xTaskCreatePinnedToCore(position_pid_task, "position_pid", 8192, NULL, 1, &control_loop_task, 1);
+    xTaskCreatePinnedToCore(position_pid_task, "position_pid", 8192, NULL, 10, &control_loop_task, 1);
     ESP_LOGI(TAG_main, "[%i] SETTING UP POTENTIOMETER TASK", 0);
-    xTaskCreatePinnedToCore(read_potentiometer_task, "poteniometer", 10000, NULL, 1, &read_pot_task, 0);
+    xTaskCreatePinnedToCore(read_potentiometer_task, "poteniometer", 10000, NULL, 5, &read_pot_task, 0);
     ESP_LOGI(TAG_main, "[%i] SETTING UP DISPLAY TASK", 0);
-    xTaskCreatePinnedToCore(display_control_data_task, "display", 8192, NULL, 2, &display_data_task, 0);
+    xTaskCreatePinnedToCore(display_control_data_task, "display", 8192, NULL, 1, &display_data_task, 0);
     return;
 }
