@@ -93,7 +93,7 @@ typedef enum {
 pid_mode mode = VELOCITY;
 
 //-------- POSITION LOOP PARAMETERS
-float Kp_pos = 0.6;
+float Kp_pos = 5;
 float Kd_pos = 0.025;
 float Ki_pos = 0;
 float Beta = 0.9; // velocity filtering
