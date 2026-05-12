@@ -306,8 +306,6 @@ void position_pid_task(void *pvParameters)
     TickType_t last_wake_time = xTaskGetTickCount(); // get the beginning time loop
     while (1) 
     {
-         // timing stuff
-
         //-------- READ MEASUREMENT
         ctrl_loop_read(&curr_pos_enc_counts);
 
@@ -335,10 +333,14 @@ void position_pid_task(void *pvParameters)
         ctrl_loop_write(&U);
 
         // store data in the buffers
-        ACTUAL_POS = curr_pos;
-        ENCODER_COUNTS = curr_pos_enc_counts;
-        ERROR = err;
-        CONTROL_SIGNAL = U;
+        if(xSemaphoreTake(xMutex, 0))
+        {
+            ACTUAL_POS = curr_pos;
+            ENCODER_COUNTS = curr_pos_enc_counts;
+            ERROR = err;
+            CONTROL_SIGNAL = U;
+            xSemaphoreGive(xMutex);
+        }
 
         // Set the previous variables for our next loop
         prev_err = err;
