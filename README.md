@@ -2,17 +2,18 @@
 
 For my final project submission, I used a PD controller and an ESP32 to control a brushless DC motor. This README contains the hardware used by the system, the system electronics and wiring, and the software to drive the system. By the end of this README, you should build and replicate the results exaclty from this final project! At least, that is my hope with this README :)
 
-## VIDEOS
-### ALL ENCOMPASSING VIDEO (I spliced everything into one video, click on image)
+## VIDEOS (click on images)
+### ALL ENCOMPASSING VIDEO (I spliced everything into one video)
 [![WATCH ME!](https://img.youtube.com/vi/Hu35tKas5SA/0.jpg)](https://www.youtube.com/watch?v=Hu35tKas5SA)
-### FINAL PRESENTATION VIDEO (click on image)
+### FINAL PRESENTATION VIDEO
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/4x_1EzVbeUM/0.jpg)](https://www.youtube.com/watch?v=4x_1EzVbeUM)
-### CODE OVERVIEW VIDEO (click on image)
+### CODE OVERVIEW VIDEO
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/HJQnwBiKr0g/0.jpg)](https://www.youtube.com/watch?v=HJQnwBiKr0g)
-### SYSTEM DEMO (click on image)
-[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/Gk0GASkIG9Y/0.jpg)](https://www.youtube.com/watch?v=Gk0GASkIG9Y)
-### SYSTEM DEMO WITH TERMINAL OUTPUT (click on image)
+### CODE OVERVIEW WITH SYSTEM DEMO
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/exr8jvf5Yu8/0.jpg)](https://www.youtube.com/watch?v=exr8jvf5Yu8)
+### SYSTEM DEMO
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/Gk0GASkIG9Y/0.jpg)](https://www.youtube.com/watch?v=Gk0GASkIG9Y)
+
 
 ## Tools Needed:
 - Wire strippers
@@ -69,9 +70,11 @@ The two prints that are attached to the motor are the armature and direction arr
 [ADD photos]
 
 ### ENCODER SIDE PRINTS
-The only print needed for the encoder is it's mount, which you can find here: [TODO - ADD LINK]
+The only print needed for the encoder is it's mount, which you can find [here](FinalProj/STL/)
 
-[ADD photos]
+<img src="image.png" alt="encoder mount view 1" width="300"/>
+<img src="image-1.png" alt="encoder mount view 2" width="300"/>
+
 
 ### 8020 MOTOR MOUNT
 Because this is a little complex and also not necessarily required (another mounting method can be designed), see the CAD for more detail [TODO - ADD LINK]
