@@ -2,6 +2,9 @@
 
 For my final project submission, I used a PD controller and an ESP32 to control a brushless DC motor. This README contains the hardware used by the system, the system electronics and wiring, and the software to drive the system. By the end of this README, you should build and replicate the results exaclty from this final project! At least, that is my hope with this README :)
 
+<img src="image-5.png" alt="" width="500"/> 
+
+
 ## VIDEOS (click on images)
 ### ALL ENCOMPASSING VIDEO (I spliced everything into one video)
 [![WATCH ME!](https://img.youtube.com/vi/Hu35tKas5SA/0.jpg)](https://www.youtube.com/watch?v=Hu35tKas5SA)
@@ -67,13 +70,25 @@ The system relies on three 3D prints to connect the motor and the encoder. The m
 ### MOTOR SIDE PRINTS
 The two prints that are attached to the motor are the armature and direction arrow. You can find them here [TODO - ADD LINK]
 
-[ADD photos]
+<u>**Motor-To-Encoder Armatrure:**</u>
+
+<img src="image-2.png" width="400"/> 
+
+<img src="image-3.png" width="400"/> 
+
+<u>**Direction Indicator Arm:**</u>
+
+<img src="image-4.png" width="200"/> 
+
+
 
 ### ENCODER SIDE PRINTS
 The only print needed for the encoder is it's mount, which you can find [here](FinalProj/STL/)
 
-<img src="image.png" alt="encoder mount view 1" width="200"/>
-<img src="image-1.png" alt="encoder mount view 2" width="200"/>
+<u>**Encoder Mount:**</u>
+
+<img src="image.png" width="300"/> 
+<img src="image-1.png" width="300"/>
 
 
 ### 8020 MOTOR MOUNT
