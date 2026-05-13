@@ -72,8 +72,8 @@ The two prints that are attached to the motor are the armature and direction arr
 ### ENCODER SIDE PRINTS
 The only print needed for the encoder is it's mount, which you can find [here](FinalProj/STL/)
 
-<img src="image.png" alt="encoder mount view 1" width="300"/>
-<img src="image-1.png" alt="encoder mount view 2" width="300"/>
+<img src="image.png" alt="encoder mount view 1" width="200"/>
+<img src="image-1.png" alt="encoder mount view 2" width="200"/>
 
 
 ### 8020 MOTOR MOUNT
